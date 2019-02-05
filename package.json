@@ -1,0 +1,28 @@
+{
+  "name": "escoc",
+  "version": "0.1.0",
+  "description": "A nano proof language.",
+  "main": "main.js",
+  "bin": {
+    "escoc": "main.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maiavictor/ESCoC.git"
+  },
+  "keywords": [
+    "theorem-proving",
+    "lambda-calculus",
+    "functional-programming",
+    "type-theory"
+  ],
+  "author": "Victor Maia",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/maiavictor/ESCoC/issues"
+  },
+  "homepage": "https://github.com/maiavictor/ESCoC#readme"
+}
