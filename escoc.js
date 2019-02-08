@@ -1,11 +1,11 @@
 // A Formality term is an ADT represented by a JSON
-const Var = (index)            => ["Var", {index}];
-const Typ = ()                 => ["Typ", {}];
-const All = (name, bind, body) => ["All", {name, bind, body}];
-const Lam = (name, bind, body) => ["Lam", {name, bind, body}];
-const App = (func, argm)       => ["App", {func, argm}];
-const Let = (name, copy, body) => ["Let", {name, copy, body}];
-const Ref = (name)             => ["Ref", {name}];
+const Var = (index)            => ["Var", {index},            "#" + index];
+const Typ = ()                 => ["Typ", {},                 "*"];
+const All = (name, bind, body) => ["All", {name, bind, body}, "&" + bind[2] + body[2]];
+const Lam = (name, bind, body) => ["Lam", {name, bind, body}, "^" + (bind?bind[2]:"") + body[2]];
+const App = (func, argm)       => ["App", {func, argm},       "@" + func[2] + argm[2]];
+const Let = (name, copy, body) => ["Let", {name, copy, body}, "=" + copy[2] + body[2]];
+const Ref = (name)             => ["Ref", {name},             "{" + name + "}"];
 
 // A context is an array of (name, type, term) triples
 const Ctx = () => null;
@@ -274,6 +274,113 @@ const shift = ([ctor, term], inc, depth) => {
   }
 }
 
+// Checks if two terms are equal
+const equals = (a, b, defs) => {
+  const Eql = (a, b)    => ["Eql", {a, b}];
+  const Bop = (v, x, y) => ["Bop", {v, x, y}];
+  const Val = (v)       => ["Val", {v}];
+
+  const step = (node) => {
+    switch (node[0]) {
+      // An equality test
+      case "Eql":
+        var {a, b} = node[1];
+
+        // Gets whnfs with and without dereferencing
+        var ax = norm(a, {}, false);
+        var bx = norm(b, {}, false);
+        var ay = norm(a, defs, false);
+        var by = norm(b, defs, false);
+
+        // Optional optimization: if hashes are equal, then a == b
+        if (a[2] === b[2] || ax[2] === bx[2] || ay[2] === by[2]) {
+          return Val(true);
+        }
+
+        // If non-deref whnfs are app and fields are equal, then a == b
+        var x = null;
+        if (ax[2] !== ay[2] || bx[2] !== by[2]) {
+          if (ax[0] === "Ref" && bx[0] === "Ref" && ax[1].name === bx[1].name) {
+            x = Val(true);
+          } else if (ax[0] === "App" && bx[0] === "App") {
+            var func = Eql(ax[1].func, bx[1].func);
+            var argm = Eql(ax[1].argm, bx[1].argm);
+            x = Bop(false, func, argm);
+          }
+        }
+
+        // If whnfs are equal and fields are equal, then a == b
+        var y = null;
+        if (ay[0] === "Typ" && by[0] === "Typ") {
+          y = Val(true);
+        } else if (ay[0] === "All" && by[0] === "All") {
+          y = Bop(false, Eql(ay[1].bind, by[1].bind), Eql(ay[1].body, by[1].body));
+        } else if (ay[0] === "Lam" && by[0] === "Lam") {
+          y = Eql(ay[1].body, by[1].body)
+        } else if (ay[0] === "App" && by[0] === "App") {
+          y = Bop(false, Eql(ay[1].func, by[1].func), Eql(ay[1].argm, by[1].argm));
+        } else if (ay[0] === "Var" && by[0] === "Var") {
+          y = Val(ay[1].index === by[1].index);
+        } else {
+          y = Val(false);
+        }
+
+        return x ? Bop(true, x, y) : y;
+
+      // A binary operation (or / and)
+      case "Bop":
+        var {v, x, y} = node[1];
+        if (x[0] === "Val") {
+          return x[1].v === v ? Val(v) : y;
+        } else if (y[0] === "Val") {
+          return y[1].v === v ? Val(v) : x;
+        } else {
+          return Bop(v, step(x), step(y));
+        }
+
+      // A result value (true / false)
+      case "Val":
+        return node;
+    }
+  }
+
+  // Expands the search tree until it finds an answer
+  var tree = Eql(a, b);
+  while (tree[0] !== "Val") {
+    var tree = step(tree);
+  }
+  return tree[1].v;
+}
+
+// Reduces a term to normal form or head normal form
+const norm = ([ctor, term], defs, full) => {
+  const cont = full ? norm : (x => x);
+  const apply = (func, argm) => {
+    var func = norm(func, defs, false);
+    if (func[0] === "Lam") {
+      return norm(subst(func[1].body, argm, 0), defs, full);
+    } else {
+      return App(func, cont(argm, defs, full));
+    }
+  }
+  const dereference = (name) => {
+    if (defs[name] && !defs[name].seen) {
+      return norm(defs[name].term, defs, full);
+    } else {
+      return Ref(name);
+    }
+  }
+  switch (ctor) {
+    case "Var": return Var(term.index);
+    case "Typ": return Typ();
+    case "All": return All(term.name, term.bind, cont(term.body, defs, full));
+    case "Lam": return Lam(term.name, term.bind, cont(term.body, defs, full)); 
+    case "App": return apply(term.func, term.argm);
+    case "Let": return norm(subst(term.body, term.copy, 0), defs, full);
+    case "Ref": return dereference(term.name);
+  }
+}
+
 // Substitution
 const subst = ([ctor, term], val, depth) => {
   switch (ctor) {
@@ -306,77 +413,8 @@ const subst = ([ctor, term], val, depth) => {
   }
 }
 
-// Equality
-const equals = (a, b, defs) => {
-  // Checks if whnfs are equal without dereferencing
-  var a = norm(a, {}, false);
-  var b = norm(b, {}, false);
-  if ( a[0] === "Ref" && b[0] === "Ref" && a[1].name === b[1].name
-    || a[0] === "App" && b[0] === "App" && equals(a[1].func, b[1].func, defs) && equals(a[1].argm, b[1].argm, defs)
-    || a[0] === "Cpy" && b[0] === "Cpy" && equals(a[1].copy, b[1].copy, defs) && equals(a[1].body, b[1].body, defs)) {
-    return true;
-  }
-  // Otherwise, checks if whnfs are equal with dereferencing
-  var a = norm(a, defs, false);
-  var b = norm(b, defs, false);
-  if (a[0] === "Typ" && b[0] === "Typ") {
-    return true;
-  } else if (a[0] === "All" && b[0] === "All") {
-    var bind = equals(a[1].bind, b[1].bind, defs);
-    var body = equals(a[1].body, b[1].body, defs);
-    return bind && body;
-  } else if (a[0] === "Lam" && b[0] === "Lam") {
-    var body = equals(a[1].body, b[1].body, defs);
-    return body;
-  } else if (a[0] === "App" && b[0] === "App") {
-    var func = equals(a[1].func, b[1].func, defs);
-    var argm = equals(a[1].argm, b[1].argm, defs);
-    return func && argm;
-  } else if (a[0] === "Var" && b[0] === "Var") {
-    return a[1].index === b[1].index;
-  }
-  // Otherwise, terms are different
-  return false;
-}
-
-// Norm
-const norm = ([ctor, term], defs, full) => {
-  const cont = full ? norm : (x => x);
-  const apply = (func, argm) => {
-    var func = norm(func, defs, false);
-    if (func[0] === "Lam") {
-      return norm(subst(func[1].body, argm, 0), defs, full);
-    } else {
-      return App(func, cont(argm, defs, full));
-    }
-  }
-  const dereference = (name) => {
-    if (defs[name] && !defs[name].seen) {
-      var term = norm(defs[name].term, defs, full);
-      var term = term;
-      return term;
-    } else {
-      return Ref(name);
-    }
-  }
-  switch (ctor) {
-    case "Var": return Var(term.index);
-    case "Typ": return Typ();
-    case "All": return All(term.name, cont(term.bind, defs, false), cont(term.body, defs, full));
-    case "Lam": return Lam(term.name, term.bind && cont(term.bind, defs, false), cont(term.body, defs, full)); 
-    case "App": return apply(term.func, term.argm);
-    case "Let": return norm(subst(term.body, term.copy, 0), defs, full);
-    case "Ref": return dereference(term.name);
-  }
-}
-
-// Check
+// Infers the type of a term
 const infer = (term, defs, ctx = Ctx()) => {
-  try {
-    norm(term, defs, false);
-  } catch (e) {
-    throw "[ERROR]\nCouldn't determine head of: `" + show(term, ctx) + "`. Possibly non-terminating expression?";
-  }
   switch (term[0]) {
     case "Typ":
       return Typ();
@@ -384,7 +422,7 @@ const infer = (term, defs, ctx = Ctx()) => {
       var ex_ctx = extend(ctx, [term[1].name, term[1].bind, Var(0)]);
       var bind_t = infer(term[1].bind, defs, ex_ctx);
       var body_t = infer(term[1].body, defs, ex_ctx);
-      if (!equals(bind_t, Typ(), defs) || !equals(body_t, Typ(), defs)) {
+      if (!equals(bind_t, Typ(), defs, ctx) || !equals(body_t, Typ(), defs, ctx)) {
         throw "[ERROR]\nForall not a type: `" + show(term, ctx) + "`. Context:\n\n" + show_context(ctx);
       }
       return Typ();
@@ -441,7 +479,7 @@ const check = (term, type, defs, ctx = Ctx()) => {
   } else {
     var term_t = infer(term, defs, ctx);
     try {
-      var checks = equals(type, term_t, defs);
+      var checks = equals(type, term_t, defs, ctx);
     } catch (e) {
       var checks = false;
       console.log("Couldn't decide if terms are equal.");
@@ -485,5 +523,8 @@ module.exports = {
   parse,
   norm,
   infer,
-  check
+  check,
+  equals
 };
+
+require("./main.js");

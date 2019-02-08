@@ -33,7 +33,7 @@ try {
 
 try {
   var type = escoc.infer(term, defs);
-  console.log("Type:\n" + escoc.show(escoc.norm(type, {}, true)));
+  console.log("Type:\n" + escoc.show(type));
 } catch (e) {
   console.log("Type:");
   console.log(e);

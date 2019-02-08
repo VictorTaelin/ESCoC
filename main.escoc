@@ -188,5 +188,20 @@ add_n_zero
     [pred : (Nat pred)] (Eq.cong Nat Nat (Nat.add pred Nat.zero) pred (add_n_zero pred) Nat.succ)
     (Eq.refl Nat Nat.zero))
 
+add_n_succ_m
+: {n : (Nat n)} {m : (Nat m)} (Eq Nat (Nat.add n (Nat.succ m)) (Nat.succ (Nat.add n m)) (add_n_succ_m n m))
+= [N] [M]
+  (N
+    [self] (Eq Nat (Nat.add self (Nat.succ M)) (Nat.succ (Nat.add self M)) (add_n_succ_m self M))
+    [pred : (Nat pred)]
+      (Eq.cong
+        Nat
+        Nat
+        (Nat.add pred (Nat.succ M))
+        (Nat.succ (Nat.add pred M))
+        (add_n_succ_m pred M)
+        Nat.succ)
+    (Eq.refl Nat (Nat.succ M)))
+
 main
-= add_n_zero
+= add_n_succ_m
