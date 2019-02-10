@@ -10,10 +10,16 @@ the
 : {A : Type} {u : A} A
 = [A] [u] u
 
+-- A self-referential type
+
+Data
+: {T : {self : (T self)} Type} Type
+= [T] {self : (T self)} Type
+
 -- The empty, uninhabited type
 
 Empty
-: {self : (Empty self)} Type
+: (Data Empty)
 = [self]
   {Prop : {self : (Empty self)} Type}
   (Prop self)
@@ -21,7 +27,7 @@ Empty
 -- The unit type
 
 Unit
-: {self : (Unit self)} Type
+: (Data Unit)
 = [self]
   {Prop : {self : (Unit self)} Type}
   {new  : (Prop Unit.new)}
@@ -34,7 +40,7 @@ Unit.new
 -- The booleans true and false
 
 Bool
-: {self  : (Bool self)} Type
+: (Data Bool)
 = [self]
   {Prop  : {self : (Bool self)} Type}
   {true  : (Prop Bool.true)}
@@ -127,7 +133,7 @@ Nat.add
 -- Equality on self-referential types
 
 Eq
-: {T    : {self : (T self)} Type}
+: {T    : (Data T)}
   {a    : (T a)}
   {b    : (T b)}
   {self : (Eq T a b self)}
@@ -203,5 +209,82 @@ add_n_succ_m
         Nat.succ)
     (Eq.refl Nat (Nat.succ M)))
 
+Bin
+: {self : (Bin self)} Type
+= [self]
+  {Prop : {self : (Bin self)} Type}
+  {O    : {pred : (Bin pred)} (Prop (Bin.O pred))}
+  {I    : {pred : (Bin pred)} (Prop (Bin.I pred))}
+  {E    : (Prop Bin.E)}
+  (Prop self)
+
+Bin.O
+: {pred : (Bin pred)}
+  (Bin (Bin.O pred))
+= [pred] [Prop] [O] [I] [E]
+  (O pred)
+
+Bin.I
+: {pred : (Bin pred)}
+  (Bin (Bin.I pred))
+= [pred] [Prop] [O] [I] [E]
+  (I pred)
+
+Bin.E
+: (Bin Bin.E)
+= [Prop] [O] [I] [E]
+  E
+
+Bin.inc
+: {x : (Bin x)}
+  (Bin (Bin.inc x))
+= [xs]
+  (xs [self : (Bin self)] (Bin (Bin.inc self))
+    [pred] (Bin.I pred)
+    [pred] (Bin.O (Bin.inc pred))
+    Bin.E)
+
+Sigma
+: {A : (Data A)}
+  {B : {x : (A x)} (Data (B x))}
+  {self : (Sigma A B self)}
+  Type
+= [A] [B] [self]
+  {Prop : {self : (Sigma A B self)} Type}
+  {new  : {a : (A a)} {b : (B a b)} (Prop (Sigma.new A B a b))}
+  (Prop self)
+
+Sigma.new
+: {A : (Data A)}
+  {B : {x : (A x)} (Data (B x))}
+  {a : (A a)}
+  {b : (B a b)}
+  (Sigma A B (Sigma.new A B a b))
+= [A] [B] [a] [b] [Prop] [new]
+  (new a b)
+
+Sigma.fst
+: {A : (Data A)}
+  {B : {x : (A x)} (Data (B x))}
+  {sigma : (Sigma A B sigma)}
+  (A (Sigma.fst A B sigma))
+= [A] [B] [sigma]
+  (sigma
+    [self : (Sigma A B self)](A (Sigma.fst A B self))
+    [a : (A a)] [b : (B a b)] a)
+
+Sigma.snd
+: {A : (Data A)}
+  {B : {x : (A x)} (Data (B x))}
+  {sigma : (Sigma A B sigma)}
+  (B (Sigma.fst A B sigma) (Sigma.snd A B sigma))
+= [A] [B] [sigma]
+  (sigma
+    [self : (Sigma A B self)] (B (Sigma.fst A B self) (Sigma.snd A B self))
+    [a : (A a)] [b : (B a b)] b)
+
+Sigma.example
+= (Sigma.new Nat [x : (Nat x)](Eq Nat x x) Nat.3 (Eq.refl Nat Nat.3))
+
 main
-= add_n_succ_m
+= (Sigma.snd Nat [x : (Nat x)](Eq Nat x x) Sigma.example)
