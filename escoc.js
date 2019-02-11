@@ -1,4 +1,4 @@
-// A Formality term is an ADT represented by a JSON
+// An ESCoC term is an ADT represented by a JSON
 const Var = (index)            => ["Var", {index},            "#" + index];
 const Typ = ()                 => ["Typ", {},                 "*"];
 const All = (name, bind, body) => ["All", {name, bind, body}, "&" + bind[2] + body[2]];
@@ -34,8 +34,12 @@ const get_name = (ctx, i) => {
   const repeat = (str, i) => {
     return i === 0 ? "" : str + repeat(str, i - 1);
   }
-  var name = get_bind(ctx, i)[0];
-  return repeat("'", count(ctx, name, i)) + name;
+  var name = get_bind(ctx, i);
+  if (name) {
+    return name[0] + repeat("'", count(ctx, name, i));
+  } else {
+    return "#" + i;
+  }
 }
 
 const get_type = (ctx, i) => {

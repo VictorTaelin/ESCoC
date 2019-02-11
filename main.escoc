@@ -12,14 +12,22 @@ the
 
 -- A self-referential type
 
-Data
+Self
 : {T : {self : (T self)} Type} Type
 = [T] {self : (T self)} Type
+
+-- Identity
+
+the2
+: {A : {self : (A self)} Type}
+  {u : (A u)}
+  (A (the2 A u))
+= [A] [u] u
 
 -- The empty, uninhabited type
 
 Empty
-: (Data Empty)
+: (Self Empty)
 = [self]
   {Prop : {self : (Empty self)} Type}
   (Prop self)
@@ -27,7 +35,7 @@ Empty
 -- The unit type
 
 Unit
-: (Data Unit)
+: (Self Unit)
 = [self]
   {Prop : {self : (Unit self)} Type}
   {new  : (Prop Unit.new)}
@@ -40,7 +48,7 @@ Unit.new
 -- The booleans true and false
 
 Bool
-: (Data Bool)
+: (Self Bool)
 = [self]
   {Prop  : {self : (Bool self)} Type}
   {true  : (Prop Bool.true)}
@@ -133,7 +141,7 @@ Nat.add
 -- Equality on self-referential types
 
 Eq
-: {T    : (Data T)}
+: {T    : (Self T)}
   {a    : (T a)}
   {b    : (T b)}
   {self : (Eq T a b self)}
@@ -172,7 +180,7 @@ Eq.cong
   (e [b][self](Eq B (f a) (f b) (Eq.cong A B a b self f))
     (Eq.refl B (f a)))
 
-Eq.subst
+Eq.simple_subst
 : {T : {self : (T self)} Type}
   {a : (T a)}
   {b : (T b)}
@@ -183,9 +191,16 @@ Eq.subst
 = [T] [a] [b] [e] [P] [x]
   (e [b][self](P b) x)
 
-subst_reduces_example
-: (Nat Nat.zero)
-= (Eq.subst Nat Nat.zero Nat.zero (Eq.refl Nat Nat.zero) [a : (Nat a)](Nat a) Nat.zero)
+Eq.subst
+: {T : (Self T)}
+  {a : (T a)}
+  {b : (T b)}
+  {e : (Eq T a b e)}
+  {P : {a : (T a)} (Self (P a))}
+  {x : (P a x)}
+  (P b (Eq.subst T a b e P x))
+= [T] [a] [b] [e] [P] [x]
+  (e [b][self](P b (Eq.subst T a b self P x)) x)
 
 add_n_zero
 : {n : (Nat n)} (Eq Nat (Nat.add n Nat.zero) n (add_n_zero n))
@@ -245,8 +260,8 @@ Bin.inc
     Bin.E)
 
 Sigma
-: {A : (Data A)}
-  {B : {x : (A x)} (Data (B x))}
+: {A : (Self A)}
+  {B : {x : (A x)} (Self (B x))}
   {self : (Sigma A B self)}
   Type
 = [A] [B] [self]
@@ -255,8 +270,8 @@ Sigma
   (Prop self)
 
 Sigma.new
-: {A : (Data A)}
-  {B : {x : (A x)} (Data (B x))}
+: {A : (Self A)}
+  {B : {x : (A x)} (Self (B x))}
   {a : (A a)}
   {b : (B a b)}
   (Sigma A B (Sigma.new A B a b))
@@ -264,8 +279,8 @@ Sigma.new
   (new a b)
 
 Sigma.fst
-: {A : (Data A)}
-  {B : {x : (A x)} (Data (B x))}
+: {A : (Self A)}
+  {B : {x : (A x)} (Self (B x))}
   {sigma : (Sigma A B sigma)}
   (A (Sigma.fst A B sigma))
 = [A] [B] [sigma]
@@ -274,8 +289,8 @@ Sigma.fst
     [a : (A a)] [b : (B a b)] a)
 
 Sigma.snd
-: {A : (Data A)}
-  {B : {x : (A x)} (Data (B x))}
+: {A : (Self A)}
+  {B : {x : (A x)} (Self (B x))}
   {sigma : (Sigma A B sigma)}
   (B (Sigma.fst A B sigma) (Sigma.snd A B sigma))
 = [A] [B] [sigma]
@@ -286,5 +301,24 @@ Sigma.snd
 Sigma.example
 = (Sigma.new Nat [x : (Nat x)](Eq Nat x x) Nat.3 (Eq.refl Nat Nat.3))
 
+add_comm
+: {n : (Nat n)}
+  {m : (Nat m)}
+  (Eq Nat
+    (Nat.add n m)
+    (Nat.add m n)
+    (add_comm n m))
+= [n] [m]
+  (n
+    [self] {m : (Nat m)} (Eq Nat (Nat.add self m) (Nat.add m self) (add_comm self m))
+    [pred : (Nat pred)] [m : (Nat m)]
+    (Eq.subst Nat
+      (Nat.add m pred)
+      (Nat.add pred m)
+      (Eq.sym Nat (Nat.add pred m) (Nat.add m pred) (add_comm pred m))
+      [x : (Nat x)] (Eq Nat (Nat.succ x) (Nat.add m (Nat.succ pred)))
+      (Eq.sym Nat (Nat.add m (Nat.succ pred)) (Nat.succ (Nat.add m pred)) (add_n_succ_m m pred)))
+    (Eq.sym Nat (Nat.add m Nat.zero) m (add_n_zero m)))
+
 main
-= (Sigma.snd Nat [x : (Nat x)](Eq Nat x x) Sigma.example)
+= add_comm
