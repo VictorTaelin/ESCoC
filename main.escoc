@@ -72,7 +72,7 @@ Bool.not
     Bool.false
     Bool.true)
 
--- Natural numbers
+-- Natural numbers (Scott)
 
 Nat
 : (Self Nat)
@@ -155,6 +155,137 @@ Nat.add_comm
 	 [x : (Nat x)] (Eq Nat (Nat.succ x) (Nat.add m (Nat.succ pred)))
 	 (Eq.sym Nat (Nat.add m (Nat.succ pred)) (Nat.succ (Nat.add m pred)) (Nat.add_n_succ_m m pred)))
      [m : (Nat m)] (Eq.sym Nat (Nat.add m Nat.zero) m (Nat.add_n_zero m)))
+
+-- Natural numbers (Church)
+
+Cat
+: (Self Cat)
+= [self]
+  {P : (Self P)}
+  {s : {x : (P x)} (P (s x))}
+  {z : (P z)}
+  (P (self P s z))
+
+Cat.succ
+: {n : (Cat n)} (Cat (Cat.succ n))
+= [n] [P] [s] [z]
+  (s (n P s z))
+
+Cat.zero
+: (Cat Cat.zero)
+= [P] [s] [z]
+  z
+
+Cat.0 : (Cat Cat.0) = Cat.zero
+Cat.1 : (Cat Cat.1) = (Cat.succ Cat.0)
+Cat.2 : (Cat Cat.2) = (Cat.succ Cat.1)
+Cat.3 : (Cat Cat.3) = (Cat.succ Cat.2)
+Cat.4 : (Cat Cat.4) = (Cat.succ Cat.3)
+Cat.5 : (Cat Cat.5) = (Cat.succ Cat.4)
+Cat.6 : (Cat Cat.6) = (Cat.succ Cat.5)
+Cat.7 : (Cat Cat.7) = (Cat.succ Cat.6)
+Cat.8 : (Cat Cat.8) = (Cat.succ Cat.7)
+Cat.9 : (Cat Cat.9) = (Cat.succ Cat.8)
+
+Cat.add
+: {n : (Cat n)} {m : (Cat m)} (Cat (Cat.add n m))
+= [n] [m] [P] [s] [z]
+  (n P s (m P s z))
+
+Cat.mul
+: {n : (Cat n)} {m : (Cat m)} (Cat (Cat.mul n m))
+= [n] [m] [P] [s] [z]
+  (n P (m P s) z)
+
+Cat.ex
+: (Eq Cat Cat.zero Cat.zero (Eq.refl Cat Cat.zero))
+= (Eq.refl Cat Cat.zero)
+
+Cat.even
+: {n : (Cat n)} (Bool (Cat.even n))
+= [n] 
+  (n [n : (Bool n)](Bool n)
+    [n : (Bool n)] (Bool.not n)
+    Bool.true)
+
+-- Natural numbers (Parigot)
+
+Rat
+: {self : (Rat self)} Type
+= [self]
+  {Prop : {self : (Rat self)} Type}
+  {succ : {pred : (Rat pred)} {fold : (Prop pred)} (Prop (Rat.succ pred))}
+  {zero : (Prop Rat.zero)}
+  (Prop self)
+
+Rat.succ
+: {pred : (Rat pred)} (Rat (Rat.succ pred))
+= [pred] [Rat.] [succ.] [zero.]
+  (succ. pred (pred Rat. succ. zero.))
+
+Rat.zero
+: (Rat Rat.zero)
+= [Rat.] [succ.] [zero.] zero.
+
+Rat.0 : (Rat Rat.0) = Rat.zero
+Rat.1 : (Rat Rat.1) = (Rat.succ Rat.0)
+Rat.2 : (Rat Rat.2) = (Rat.succ Rat.1)
+Rat.3 : (Rat Rat.3) = (Rat.succ Rat.2)
+Rat.4 : (Rat Rat.4) = (Rat.succ Rat.3)
+Rat.5 : (Rat Rat.5) = (Rat.succ Rat.4)
+Rat.6 : (Rat Rat.6) = (Rat.succ Rat.5)
+Rat.7 : (Rat Rat.7) = (Rat.succ Rat.6)
+Rat.8 : (Rat Rat.8) = (Rat.succ Rat.7)
+Rat.9 : (Rat Rat.9) = (Rat.succ Rat.8)
+
+Rat.add
+: {n : (Rat n)}
+  {m : (Rat m)}
+  (Rat (Rat.add n m))
+= [n] (n
+  [self : (Rat self)] {m : (Rat m)} (Rat (Rat.add self m))
+  [pred] [fold : {m : (Rat m)} (Rat (Rat.add pred m))] [m : (Rat m)] (fold (Rat.succ m))
+  [m : (Rat m)] m)
+
+Rat.double_aux
+: {n : (Rat n)}
+  {m : (Rat m)}
+  (Rat (Rat.double_aux n m))
+= [n] (n
+  [self : (Rat self)]
+    {m : (Rat m)} (Rat (Rat.double_aux self m))
+  [pred] [fold : {m : (Rat m)} (Rat (Rat.double_aux pred m))]
+    [m : (Rat m)] (fold (Rat.succ (Rat.succ m)))
+  [m : (Rat m)] m)
+
+Rat.double
+: {n : (Rat n)}
+  (Rat (Rat.double n))
+= [n] (Rat.double_aux n Rat.zero)
+
+Rat.to_cat
+: {n : (Rat n)} (Cat (Rat.to_cat n))
+= [n] (n
+  [self : (Rat self)] (Cat (Rat.to_cat self))
+  [pred]
+    [fold : (Cat (Rat.to_cat pred))]
+    [P : (Self P)]
+    [s : {x : (P x)} (P (s x))]
+    [z : (P z)]
+    (fold P s (s z))
+  Cat.zero)
+
+Rat.from_cat
+: {n : (Cat n)} (Rat (Rat.from_cat n))
+= [n] (n Rat Rat.succ Rat.zero)
+
+Rat.add2
+: {n : (Rat n)} {m : (Rat m)} (Rat (Rat.add2 n m))
+= [n] [m] (Rat.from_cat (Cat.add (Rat.to_cat n) (Rat.to_cat m)))
+
+Rat.mul2
+: {n : (Rat n)} {m : (Rat m)} (Rat (Rat.mul2 n m))
+= [n] [m] (Rat.from_cat (Cat.mul (Rat.to_cat n) (Rat.to_cat m)))
 
 -- Equality on self-referential types
 
@@ -290,136 +421,5 @@ Sigma.snd
 Sigma.example
 = (Sigma.new Nat [x : (Nat x)](Eq Nat x x) Nat.3 (Eq.refl Nat Nat.3))
 
--- Church Natural Numbers
-
-Cat
-: (Self Cat)
-= [self]
-  {P : (Self P)}
-  {s : {x : (P x)} (P (s x))}
-  {z : (P z)}
-  (P (self P s z))
-
-Cat.succ
-: {n : (Cat n)} (Cat (Cat.succ n))
-= [n] [P] [s] [z]
-  (s (n P s z))
-
-Cat.zero
-: (Cat Cat.zero)
-= [P] [s] [z]
-  z
-
-Cat.0 : (Cat Cat.0) = Cat.zero
-Cat.1 : (Cat Cat.1) = (Cat.succ Cat.0)
-Cat.2 : (Cat Cat.2) = (Cat.succ Cat.1)
-Cat.3 : (Cat Cat.3) = (Cat.succ Cat.2)
-Cat.4 : (Cat Cat.4) = (Cat.succ Cat.3)
-Cat.5 : (Cat Cat.5) = (Cat.succ Cat.4)
-Cat.6 : (Cat Cat.6) = (Cat.succ Cat.5)
-Cat.7 : (Cat Cat.7) = (Cat.succ Cat.6)
-Cat.8 : (Cat Cat.8) = (Cat.succ Cat.7)
-Cat.9 : (Cat Cat.9) = (Cat.succ Cat.8)
-
-Cat.add
-: {n : (Cat n)} {m : (Cat m)} (Cat (Cat.add n m))
-= [n] [m] [P] [s] [z]
-  (n P s (m P s z))
-
-Cat.mul
-: {n : (Cat n)} {m : (Cat m)} (Cat (Cat.mul n m))
-= [n] [m] [P] [s] [z]
-  (n P (m P s) z)
-
-Cat.ex
-: (Eq Cat Cat.zero Cat.zero (Eq.refl Cat Cat.zero))
-= (Eq.refl Cat Cat.zero)
-
-Cat.even
-: {n : (Cat n)} (Bool (Cat.even n))
-= [n] 
-  (n [n : (Bool n)](Bool n)
-    [n : (Bool n)] (Bool.not n)
-    Bool.true)
-
--- Nutural nambers (Parigot)
-
-Nut
-: {self : (Nut self)} Type
-= [self]
-  {Prop : {self : (Nut self)} Type}
-  {succ : {pred : (Nut pred)} {fold : (Prop pred)} (Prop (Nut.succ pred))}
-  {zero : (Prop Nut.zero)}
-  (Prop self)
-
-Nut.succ
-: {pred : (Nut pred)} (Nut (Nut.succ pred))
-= [pred] [Nut.] [succ.] [zero.]
-  (succ. pred (pred Nut. succ. zero.))
-
-Nut.zero
-: (Nut Nut.zero)
-= [Nut.] [succ.] [zero.] zero.
-
-Nut.0 : (Nut Nut.0) = Nut.zero
-Nut.1 : (Nut Nut.1) = (Nut.succ Nut.0)
-Nut.2 : (Nut Nut.2) = (Nut.succ Nut.1)
-Nut.3 : (Nut Nut.3) = (Nut.succ Nut.2)
-Nut.4 : (Nut Nut.4) = (Nut.succ Nut.3)
-Nut.5 : (Nut Nut.5) = (Nut.succ Nut.4)
-Nut.6 : (Nut Nut.6) = (Nut.succ Nut.5)
-Nut.7 : (Nut Nut.7) = (Nut.succ Nut.6)
-Nut.8 : (Nut Nut.8) = (Nut.succ Nut.7)
-Nut.9 : (Nut Nut.9) = (Nut.succ Nut.8)
-
-Nut.add
-: {n : (Nut n)}
-  {m : (Nut m)}
-  (Nut (Nut.add n m))
-= [n] (n
-  [self : (Nut self)] {m : (Nut m)} (Nut (Nut.add self m))
-  [pred] [fold : {m : (Nut m)} (Nut (Nut.add pred m))] [m : (Nut m)] (fold (Nut.succ m))
-  [m : (Nut m)] m)
-
-Nut.double_aux
-: {n : (Nut n)}
-  {m : (Nut m)}
-  (Nut (Nut.double_aux n m))
-= [n] (n
-  [self : (Nut self)]
-    {m : (Nut m)} (Nut (Nut.double_aux self m))
-  [pred] [fold : {m : (Nut m)} (Nut (Nut.double_aux pred m))]
-    [m : (Nut m)] (fold (Nut.succ (Nut.succ m)))
-  [m : (Nut m)] m)
-
-Nut.double
-: {n : (Nut n)}
-  (Nut (Nut.double n))
-= [n] (Nut.double_aux n Nut.zero)
-
-Nut.to_cat
-: {n : (Nut n)} (Cat (Nut.to_cat n))
-= [n] (n
-  [self : (Nut self)] (Cat (Nut.to_cat self))
-  [pred]
-    [fold : (Cat (Nut.to_cat pred))]
-    [P : (Self P)]
-    [s : {x : (P x)} (P (s x))]
-    [z : (P z)]
-    (fold P s (s z))
-  Cat.zero)
-
-Nut.from_cat
-: {n : (Cat n)} (Nut (Nut.from_cat n))
-= [n] (n Nut Nut.succ Nut.zero)
-
-Nut.add2
-: {n : (Nut n)} {m : (Nut m)} (Nut (Nut.add2 n m))
-= [n] [m] (Nut.from_cat (Cat.add (Nut.to_cat n) (Nut.to_cat m)))
-
-Nut.mul2
-: {n : (Nut n)} {m : (Nut m)} (Nut (Nut.mul2 n m))
-= [n] [m] (Nut.from_cat (Cat.mul (Nut.to_cat n) (Nut.to_cat m)))
-
 main
-= Nat.add_comm
+= Rat.mul2
