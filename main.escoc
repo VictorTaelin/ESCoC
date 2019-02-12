@@ -144,13 +144,24 @@ Nat.add_n_succ_m
     [self] (Eq Nat (Nat.add self (Nat.succ M)) (Nat.succ (Nat.add self M)) (Nat.add_n_succ_m self M))
     [pred : (Nat pred)]
       (Eq.cong
-        Nat
-        Nat
-        (Nat.add pred (Nat.succ M))
-        (Nat.succ (Nat.add pred M))
-        (Nat.add_n_succ_m pred M)
-        Nat.succ)
+	Nat
+	Nat
+	(Nat.add pred (Nat.succ M))
+	(Nat.succ (Nat.add pred M))
+	(Nat.add_n_succ_m pred M)
+	Nat.succ)
     (Eq.refl Nat (Nat.succ M)))
+
+Nat.add_comm
+: {n : (Nat n)} {m : (Nat m)} (Eq Nat (Nat.add n m) (Nat.add m n) (Nat.add_comm n m))
+= [n : (Nat n)]
+  (n [self : (Nat self)] {m : (Nat m)} (Eq Nat (Nat.add self m) (Nat.add m self) (Nat.add_comm self m))
+     [pred : (Nat pred)] [m : (Nat m)]
+       (Eq.subst Nat
+	 (Nat.add m pred) (Nat.add pred m) (Eq.sym Nat (Nat.add pred m) (Nat.add m pred) (Nat.add_comm pred m))
+	 [x : (Nat x)] (Eq Nat (Nat.succ x) (Nat.add m (Nat.succ pred)))
+	 (Eq.sym Nat (Nat.add m (Nat.succ pred)) (Nat.succ (Nat.add m pred)) (Nat.add_n_succ_m m pred)))
+     [m : (Nat m)] (Eq.sym Nat (Nat.add m Nat.zero) m (Nat.add_n_zero m)))
 
 -- Equality on self-referential types
 
@@ -190,7 +201,7 @@ Eq.cong
   {e : (Eq A a b e)}
   {f : {a : (A a)} (B (f a))}
   (Eq B (f a) (f b) (Eq.cong A B a b e f))
-= [A] [B] [a] [b] [e] [f] 
+= [A] [B] [a] [b] [e] [f]
   (e [b][self](Eq B (f a) (f b) (Eq.cong A B a b self f))
     (Eq.refl B (f a)))
 
@@ -341,4 +352,4 @@ Nut.add
 -- Main
 
 main
-= Nut.add
+= Nat.add_comm
