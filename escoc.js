@@ -364,7 +364,7 @@ const norm = ([ctor, term], defs, full) => {
     if (func[0] === "Lam") {
       return norm(subst(func[1].body, argm, 0), defs, full);
     } else {
-      return App(func, cont(argm, defs, full));
+      return App(norm(func, defs, false), cont(argm, defs, full));
     }
   }
   const dereference = (name) => {
@@ -377,8 +377,8 @@ const norm = ([ctor, term], defs, full) => {
   switch (ctor) {
     case "Var": return Var(term.index);
     case "Typ": return Typ();
-    case "All": return All(term.name, term.bind, cont(term.body, defs, full));
-    case "Lam": return Lam(term.name, term.bind, cont(term.body, defs, full)); 
+    case "All": return All(term.name, cont(term.bind, defs, false), cont(term.body, defs, full));
+    case "Lam": return Lam(term.name, term.bind && cont(term.bind, defs, false), cont(term.body, defs, full)); 
     case "App": return apply(term.func, term.argm);
     case "Let": return norm(subst(term.body, term.copy, 0), defs, full);
     case "Ref": return dereference(term.name);
@@ -530,5 +530,3 @@ module.exports = {
   check,
   equals
 };
-
-require("./main.js");
