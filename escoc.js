@@ -446,7 +446,7 @@ const infer = (term, defs, ctx = Ctx()) => {
         throw "[ERROR]\nNon-function application on `" + show(term, ctx) + "`. Context:\n\n" + show_context(ctx);
       }
       var bind_t = subst(func_t[1].bind, term[1].argm, 0);
-      check(term[1].argm, bind_t, defs, ctx);
+      check(term[1].argm, bind_t, defs, ctx, () => "`" + show(term, ctx) + "`'s argument");
       return subst(func_t[1].body, term[1].argm, 0);
     case "Let":
       var copy_t = infer(term[1].copy, defs, ctx);
@@ -460,7 +460,7 @@ const infer = (term, defs, ctx = Ctx()) => {
         } else {
           def.done = true;
           if (def.type) {
-            check(def.term, def.type, defs, ctx);
+            check(def.term, def.type, defs, ctx, () => "`" + term[1].name + "`'s annotated type");
           } else {
             def.type = infer(def.term, defs, ctx);
           }
@@ -475,10 +475,10 @@ const infer = (term, defs, ctx = Ctx()) => {
 }
 
 // Checks if a term has given type
-const check = (term, type, defs, ctx = Ctx()) => {
+const check = (term, type, defs, ctx = Ctx(), expr) => {
   var type = norm(type, defs, false);
   if (type[0] === "All" && term[0] === "Lam" && !term[1].bind) {
-    check(term[1].body, type[1].body, defs, extend(ctx, [type[1].name, type[1].bind, Var(0)]));
+    check(term[1].body, type[1].body, defs, extend(ctx, [type[1].name, type[1].bind, Var(0)]), () => "`" + show(term, ctx) + "`'s body");
     infer(type, defs, ctx);
   } else {
     var term_t = infer(term, defs, ctx);
@@ -490,15 +490,15 @@ const check = (term, type, defs, ctx = Ctx()) => {
       console.log(e);
     }
     if (!checks) {
-      throw show_mismatch(ctx, type, norm(term_t, defs, false), () => "`" + show(term, ctx) + "`");
+      throw show_mismatch(type, norm(term_t, defs, false), expr, ctx);
     }
   }
 }
 
 // Formats a type-mismatch error message
-const show_mismatch = (ctx, expect, actual, value) => {
+const show_mismatch = (expect, actual, expr, ctx) => {
   var text = "";
-  text += "[ERROR]\nType mismatch on " + value() + ".\n";
+  text += "[ERROR]\nType mismatch on " + expr() + ".\n";
   text += "- Expect = " + show(norm(expect, {}, true), ctx) + "\n";
   text += "- Actual = " + show(norm(actual, {}, true), ctx) + "\n"
   text += "\n[CONTEXT]\n" 
