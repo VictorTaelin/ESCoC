@@ -17,7 +17,7 @@ I believe elegance is an important heuristics of mathematical exploration. Whene
 
 ## How it works?
 
-ESCoC takes the CoC and 1. expands the scope of the dependent function type, so that, in `Π (x : A) B`, `x` is bound in `A`, 2. enables equi-recursive definitions. And that's it. Notice that there are no extra primitives such as dependent intersections or self types, and no fundamental changes such as involving untyped terms in equality checking. ESCoC doesn't extend (equi-recursive) CoC with anything new, just expands in a very minor way its existing constructs. To explain it, remember that, in CoC, the return type of a function can depend on its argument. That is, in an application such as `(f a)`, if the type of `f` is `Π (x : A) B`, then the type of `(f a)` is `[a/x]B`. The difference is that, in ESCoC, the input type of a function can also depend on its argument. That is, in an application such as `(f a)`, instead of checking if `a : A`, we check if `a : [a/x]A`. ESCoC is defined by the following syntax:
+ESCoC takes the CoC and 1. expands the scope of the dependent function type, so that, in `Π (x : A) B`, `x` is bound in `A`, 2. enables recursive definitions. And that's it. Notice that there are no extra primitives such as dependent intersections or self types, and no fundamental changes such as involving untyped terms in equality checking. ESCoC doesn't extend (recursive) CoC with anything new, just expands in a very minor way its existing constructs. To explain it, remember that, in CoC, the return type of a function can depend on its argument. That is, in an application such as `(f a)`, if the type of `f` is `Π (x : A) B`, then the type of `(f a)` is `[a/x]B`. The difference is that, in ESCoC, the input type of a function can also depend on its argument. That is, in an application such as `(f a)`, instead of checking if `a : A`, we check if `a : [a/x]A`. ESCoC is defined by the following syntax:
 
 ```haskell
 term ::=
@@ -25,7 +25,7 @@ term ::=
   {var : term} term -- dependent function type
   [var : term] term -- a lambda
   (term term)       -- an application
-  var : term = term -- an equi-recursive definition
+  var : term = term -- a recursive definition
   var               -- a variable
 ```
 
@@ -53,7 +53,7 @@ ctx |- f : {x : A} B    ctx |- a : [a/x]A
 ctx |- (f a) : [a/x]B
 ```
 
-Notice that the only change with respect to (equi-recursive) CoC is that `x` is always bound in `A`. This is simple to implement, and any CoC implementation can adopt it with almost no change. 
+Notice that the only change with respect to (recursive) CoC is that `x` is always bound in `A`. This is simple to implement, and any CoC implementation can adopt it with almost no change. 
 
 ## How can one implement inductive datatypes on it?
 
@@ -191,10 +191,10 @@ Notice that this is basically the `J` axiom, with one difference: instead of bei
 
 ## But what about consistency?
 
-CoC with equi-recursion isn't consistent, as it is trivial to inhabit the empty type:
+CoC with equirecursion isn't consistent, as it is trivial to inhabit the empty type:
 
 ```
-inconsistent : {P : Type} P = inconsistent
+loop : {P : Type} P = loop
 ```
 
-In this implementation, though, this won't work, because we demand well-typed terms to have weak-head normal forms. Similarly, Girard's paradox should fail to halt. Having an un-halting type-checker can be acceptable: it just means that it can fail to decide if certain programs are correct. What is not acceptable is for a type-checker to decide that an incorrect program is correct. If ESCoC can't decide, it will simply let you know. Anyway, this is just a temporary band-aid, and I don't know if it is still possible to derive `{P : Type} P` with such restriction. Even if it turns out to be inconsistent, my hope is that small changes (i.e., simpler than dependent intersections + equality primitives) could lead to consistency, which is why I'm exploring this language. I'm currently reading [A DEPENDENTLY TYPED LANGUAGE WITH NONTERMINATION](https://www.cis.upenn.edu/~sweirich/papers/sjoberg-thesis.pdf), where the author defends the use of an inconsistent language for mathematical reasoning, detailing what kinds of care must be taken to do so. Hopefully it might provide valuable insights regarding this approach. If you have any idea or feedback, please let me know.
+But it shouldn't be hard to use ESCoC as the foundation of a consistent language. If we, for example, simply restrict recursion to positive type ocurrences, then, I believe we could easily prove strong normalization by erasure to Fω,, as done on the [Self Types](http://homepage.cs.uiowa.edu/~astump/papers/fu-stump-rta-tlca-14.pdf) paper. This would allow us to, for example, use Parigot (but not Scott) encodings for inductive reasoning. An alternative would be to use an alternative to classic logic, such as [light logics](https://arxiv.org/pdf/0704.2448.pdf), which, as argued on the paper, is consistent even in the presence of arbitrary type recursion. This may be attractive for a bunch of reasons, as it simplifies the theory and allows efficient compilation to interaction combinators. This repository will not include any particular restriction though, as it should be just a template to explore those ideas. 
