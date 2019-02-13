@@ -345,7 +345,7 @@ const norm = ([ctor, term], defs, full) => {
     if (func[0] === "Lam") {
       return norm(subst(func[1].body, argm, 0), defs, full);
     } else {
-      return App(norm(func, defs, false), cont(argm, defs, full));
+      return App(cont(func, defs, false), cont(argm, defs, full));
     }
   }
   const dereference = (name) => {
@@ -421,8 +421,8 @@ const infer = (term, defs, ctx = Ctx()) => {
         throw "[ERROR]\nNon-function application on `" + show(term, ctx) + "`. Context:\n\n" + show_context(ctx);
       }
       var bind_t = subst(func_t[1].bind, term[1].argm, 0);
-      check(term[1].argm, bind_t, defs, ctx, () => "`" + show(term, ctx) + "`'s argument");
-      return subst(func_t[1].body, term[1].argm, 0);
+      var argm_v = check(term[1].argm, bind_t, defs, ctx, () => "`" + show(term, ctx) + "`'s argument");
+      return subst(func_t[1].body, argm_v, 0);
     case "Ref":
       if (defs[term[1].name]) {
         var def = defs[term[1].name];
@@ -449,8 +449,10 @@ const infer = (term, defs, ctx = Ctx()) => {
 const check = (term, type, defs, ctx = Ctx(), expr) => {
   var type = norm(type, defs, false);
   if (type[0] === "All" && term[0] === "Lam" && !term[1].bind) {
-    check(term[1].body, type[1].body, defs, extend(ctx, [type[1].name, type[1].bind]), () => "`" + show(term, ctx) + "`'s body");
     infer(type, defs, ctx);
+    var ex_ctx = extend(ctx, [type[1].name, type[1].bind]);
+    var body_v = check(term[1].body, type[1].body, defs, ex_ctx, () => "`" + show(term, ctx) + "`'s body");
+    return Lam(type[1].name, type[1].bind, body_v);
   } else {
     var term_t = infer(term, defs, ctx);
     try {
@@ -463,6 +465,7 @@ const check = (term, type, defs, ctx = Ctx(), expr) => {
     if (!checks) {
       throw show_mismatch(type, norm(term_t, defs, false), expr, ctx);
     }
+    return term;
   }
 }
 
