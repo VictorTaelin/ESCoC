@@ -4,7 +4,6 @@ const Typ = ()                 => ["Typ", {},                 "*"];
 const All = (name, bind, body) => ["All", {name, bind, body}, "&" + bind[2] + body[2]];
 const Lam = (name, bind, body) => ["Lam", {name, bind, body}, "^" + (bind?bind[2]:"") + body[2]];
 const App = (func, argm)       => ["App", {func, argm},       "@" + func[2] + argm[2]];
-const Let = (name, copy, body) => ["Let", {name, copy, body}, "=" + copy[2] + body[2]];
 const Ref = (name)             => ["Ref", {name},             "{" + name + "}"];
 
 // A context is an array of (name, type, term) triples
@@ -20,10 +19,7 @@ const get_bind = (ctx, i, j = 0) => {
   } else if (j < i) {
     return get_bind(ctx.tail, i, j + 1);
   } else {
-    var name = ctx.head[0];
-    var term = ctx.head[1] ? shift(ctx.head[1], i, 0) : null;
-    var type = ctx.head[2] ? shift(ctx.head[2], i, 0) : null;
-    return [name, term, type];
+    return [ctx.head[0], ctx.head[1] ? shift(ctx.head[1], i, 0) : null];
   }
 }
 
@@ -42,12 +38,8 @@ const get_name = (ctx, i) => {
   }
 }
 
-const get_type = (ctx, i) => {
-  return get_bind(ctx, i) ? get_bind(ctx, i)[1] : null;
-}
-
 const get_term = (ctx, i) => {
-  return get_bind(ctx, i) ? get_bind(ctx, i)[2] : null;
+  return get_bind(ctx, i) ? get_bind(ctx, i)[1] : null;
 }
 
 const index_of = (ctx, name, skip, i = 0) => {
@@ -66,9 +58,8 @@ const index_of = (ctx, name, skip, i = 0) => {
 const show_context = (ctx, i = 0) => {
   var bind = get_bind(ctx, i);
   if (bind) {
-    var type = ": " + (bind[1] ? show(norm(bind[1], {}, true), ctx) : "?");
-    var term = "= " + (bind[2] ? show(norm(bind[2], {}, true), ctx) : "?");
-    return show_context(ctx, i + 1) + bind[0] + "\n" + type + "\n" + term + "\n\n";
+    var term = ": " + (bind[1] ? show(norm(bind[1], {}, true), ctx) : "?");
+    return show_context(ctx, i + 1) + bind[0] + "\n" + term + "\n" + term + "\n\n";
   } else {
     return "";
   }
@@ -83,13 +74,13 @@ const show = ([ctor, args], ctx = Ctx()) => {
       return "Type";
     case "All":
       var name = args.name;
-      var bind = show(args.bind, extend(ctx, [args.name, null, null]));
-      var body = show(args.body, extend(ctx, [args.name, null, null]));
+      var bind = show(args.bind, extend(ctx, [args.name, null]));
+      var body = show(args.body, extend(ctx, [args.name, null]));
       return "{" + name + " : " + bind + "} " + body;
     case "Lam":
       var name = args.name;
-      var bind = args.bind && show(args.bind, extend(ctx, [name, null, null]));
-      var body = show(args.body, extend(ctx, [name, null, null]));
+      var bind = args.bind && show(args.bind, extend(ctx, [name, null]));
+      var body = show(args.body, extend(ctx, [name, null]));
       return bind ? "[" + name + " : " + bind + "] " + body : "[" + name + "] " + body;
     case "App":
       var text = ")";
@@ -99,11 +90,6 @@ const show = ([ctor, args], ctx = Ctx()) => {
         term = term[1].func;
       }
       return "(" + show(term, ctx) + text;
-    case "Let":
-      var name = args.name;
-      var copy = show(args.copy, ctx);
-      var body = show(args.body, extend(ctx, [args.name, null, null]));
-      return "let " + name + " " + copy + " " + body;
     case "Ref":
       return args.name;
   }
@@ -188,18 +174,18 @@ const parse = (code) => {
     else if (match("{")) {
       var name = parse_name();
       var skip = parse_exact(":");
-      var bind = parse_term(extend(ctx, [name, null, Var(0)]));
+      var bind = parse_term(extend(ctx, [name, Var(0)]));
       var skip = parse_exact("}");
-      var body = parse_term(extend(ctx, [name, null, Var(0)]));
+      var body = parse_term(extend(ctx, [name, Var(0)]));
       return All(name, bind, body);
     }
 
     // Lambda
     else if (match("[")) {
       var name = parse_name();
-      var bind = match(":") ? parse_term(extend(ctx, [name, null, Var(0)])) : null;
+      var bind = match(":") ? parse_term(extend(ctx, [name, Var(0)])) : null;
       var skip = parse_exact("]");
-      var body = parse_term(extend(ctx, [name, null, Var(0)]));
+      var body = parse_term(extend(ctx, [name, Var(0)]));
       return Lam(name, bind, body);
     }
 
@@ -207,8 +193,8 @@ const parse = (code) => {
     else if (match("let")) {
       var name = parse_name();
       var copy = parse_term(ctx);
-      var body = parse_term(extend(ctx, [name, null, Var(0)]));
-      return Let(name, copy, body);
+      var body = parse_term(extend(ctx, [name, Var(0)]));
+      return subst(body, copy, 0);
     }
 
     // Variable / Reference
@@ -222,7 +208,7 @@ const parse = (code) => {
       if (var_index === null) {
         return Ref(name, false);
       } else {
-        return get_bind(ctx, var_index)[2];
+        return get_bind(ctx, var_index)[1];
       }
     }
   }
@@ -268,11 +254,6 @@ const shift = ([ctor, term], inc, depth) => {
       var func = shift(term.func, inc, depth);
       var argm = shift(term.argm, inc, depth);
       return App(func, argm);
-    case "Let":
-      var name = term.name;
-      var copy = shift(term.copy, inc, depth);
-      var body = shift(term.body, inc, depth + 1);
-      return Let(name, copy, body);
     case "Ref":
       return Ref(term.name);
   }
@@ -380,7 +361,6 @@ const norm = ([ctor, term], defs, full) => {
     case "All": return All(term.name, cont(term.bind, defs, false), cont(term.body, defs, full));
     case "Lam": return Lam(term.name, term.bind && cont(term.bind, defs, false), cont(term.body, defs, full)); 
     case "App": return apply(term.func, term.argm);
-    case "Let": return norm(subst(term.body, term.copy, 0), defs, full);
     case "Ref": return dereference(term.name);
   }
 }
@@ -406,11 +386,6 @@ const subst = ([ctor, term], val, depth) => {
       var func = subst(term.func, val, depth);
       var argm = subst(term.argm, val, depth);
       return App(func, argm);
-    case "Let":
-      var name = term.name;
-      var copy = subst(term.copy, val, depth);
-      var body = subst(term.body, val && shift(val, 1, 0), depth + 1);
-      return Let(name, copy, body);
     case "Ref":
       var name = term.name;
       return Ref(name);
@@ -423,7 +398,7 @@ const infer = (term, defs, ctx = Ctx()) => {
     case "Typ":
       return Typ();
     case "All":
-      var ex_ctx = extend(ctx, [term[1].name, term[1].bind, Var(0)]);
+      var ex_ctx = extend(ctx, [term[1].name, term[1].bind]);
       var bind_t = infer(term[1].bind, defs, ex_ctx);
       var body_t = infer(term[1].body, defs, ex_ctx);
       if (!equals(bind_t, Typ(), defs, ctx) || !equals(body_t, Typ(), defs, ctx)) {
@@ -434,7 +409,7 @@ const infer = (term, defs, ctx = Ctx()) => {
       if (term[1].bind === null) {
         throw "[ERROR]\nCan't infer non-annotated lambda. Context:\n\n" + show_context(ctx);
       } else {
-        var ex_ctx = extend(ctx, [term[1].name, term[1].bind, Var(0)]);
+        var ex_ctx = extend(ctx, [term[1].name, term[1].bind]);
         var body_t = infer(term[1].body, defs, ex_ctx);
         var term_t = All(term[1].name, term[1].bind, body_t);
         infer(term_t, defs, ctx);
@@ -448,10 +423,6 @@ const infer = (term, defs, ctx = Ctx()) => {
       var bind_t = subst(func_t[1].bind, term[1].argm, 0);
       check(term[1].argm, bind_t, defs, ctx, () => "`" + show(term, ctx) + "`'s argument");
       return subst(func_t[1].body, term[1].argm, 0);
-    case "Let":
-      var copy_t = infer(term[1].copy, defs, ctx);
-      var ex_ctx = extend(ctx, [term[1].name, shift(copy_t, 1, 0), shift(term[1].copy, 1, 0)]);
-      return subst(infer(term[1].body, defs, ex_ctx), term[1].copy, 0);
     case "Ref":
       if (defs[term[1].name]) {
         var def = defs[term[1].name];
@@ -470,7 +441,7 @@ const infer = (term, defs, ctx = Ctx()) => {
         throw "[ERROR]\nUndefined reference: `" + term[1].name + "`.";
       }
     case "Var":
-      return get_type(ctx, term[1].index);
+      return get_term(ctx, term[1].index);
   }
 }
 
@@ -478,7 +449,7 @@ const infer = (term, defs, ctx = Ctx()) => {
 const check = (term, type, defs, ctx = Ctx(), expr) => {
   var type = norm(type, defs, false);
   if (type[0] === "All" && term[0] === "Lam" && !term[1].bind) {
-    check(term[1].body, type[1].body, defs, extend(ctx, [type[1].name, type[1].bind, Var(0)]), () => "`" + show(term, ctx) + "`'s body");
+    check(term[1].body, type[1].body, defs, extend(ctx, [type[1].name, type[1].bind]), () => "`" + show(term, ctx) + "`'s body");
     infer(type, defs, ctx);
   } else {
     var term_t = infer(term, defs, ctx);
@@ -511,7 +482,6 @@ module.exports = {
   extend,
   get_bind,
   get_name,
-  get_type,
   get_term,
   index_of,
   show_context,
@@ -521,7 +491,6 @@ module.exports = {
   All,
   Lam,
   App,
-  Let,
   Ref,
   show,
   parse,
