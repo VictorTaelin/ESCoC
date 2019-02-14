@@ -105,7 +105,8 @@ Nat.9 : (Nat Nat.9) = (Nat.succ Nat.8)
 Nat.id
 : {a : (Nat a)} (Nat (Nat.id a))
 = [a]
-  (a [a] (Nat (Nat.id a))
+  (a
+    [a] (Nat (Nat.id a))
     [pred] (Nat.succ (Nat.id pred))
     Nat.zero)
 
