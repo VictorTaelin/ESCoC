@@ -407,7 +407,7 @@ const infer = (term, defs, ctx = Ctx()) => {
       return Typ();
     case "Lam":
       if (term[1].bind === null) {
-        throw "[ERROR]\nCan't infer non-annotated lambda.\n\n[CONTEXT]\n" + show_context(ctx);
+        throw "[ERROR]\nCan't infer non-annotated lambda `"+show(term,ctx)+"`.\n\n[CONTEXT]\n" + show_context(ctx);
       } else {
         var ex_ctx = extend(ctx, [term[1].name, term[1].bind]);
         var body_t = infer(term[1].body, defs, ex_ctx);
@@ -447,6 +447,7 @@ const infer = (term, defs, ctx = Ctx()) => {
 
 // Checks if a term has given type
 const check = (term, type, defs, ctx = Ctx(), expr) => {
+  var expr = expr || (() => show(term, ctx));
   var type = norm(type, defs, false);
   if (type[0] === "All" && term[0] === "Lam" && !term[1].bind) {
     infer(type, defs, ctx);
